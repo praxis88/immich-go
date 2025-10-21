@@ -57,6 +57,33 @@ func (w *LocalAssetWriter) WriteGroup(ctx context.Context, group *assets.Group) 
 	return err
 }
 
+// ScanExistingFiles returns a map of all existing asset file paths in the destination
+func (w *LocalAssetWriter) ScanExistingFiles(ctx context.Context) (map[string]bool, error) {
+	existing := make(map[string]bool)
+
+	err := fs.WalkDir(w.WriteToFS, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if !d.IsDir() {
+			existing[path.Clean(p)] = true
+		}
+		return nil
+	})
+
+	return existing, err
+}
+
+// MakePathOfAsset returns the full path including the asset filename
+func (w *LocalAssetWriter) MakePathOfAsset(a *assets.Asset) string {
+	dir := path.Join(fmt.Sprintf("%04d", a.CaptureDate.Year()), fmt.Sprintf("%04d-%02d", a.CaptureDate.Year(), a.CaptureDate.Month()))
+	return path.Join(dir, a.Base)
+}
+
+
 func (w *LocalAssetWriter) WriteAsset(ctx context.Context, a *assets.Asset) error {
 	base := a.Base
 	dir := w.pathOfAsset(a)
