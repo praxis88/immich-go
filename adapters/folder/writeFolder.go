@@ -15,6 +15,8 @@ import (
 	"github.com/simulot/immich-go/internal/fshelper/debugfiles"
 )
 
+var ErrFileExists = errors.New("file already exists")
+
 // type minimalFSWriter interface {
 // 	fs.FS
 // 	fshelper.FSCanWrite
@@ -79,30 +81,11 @@ func (w *LocalAssetWriter) WriteAsset(ctx context.Context, a *assets.Asset) erro
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			// Add an index to the file name if it already exists, or the XMP or JSON
-			index := 0
-			ext := path.Ext(base)
-			radical := base[:len(base)-len(ext)]
-			for {
-				if index > 0 {
-					base = fmt.Sprintf("%s~%d%s", radical, index, path.Ext(base))
-				}
-				_, err := fs.Stat(w.WriteToFS, path.Join(dir, base))
-				if err == nil {
-					index++
-					continue
-				}
-				_, err = fs.Stat(w.WriteToFS, path.Join(dir, base+".XMP"))
-				if err == nil {
-					index++
-					continue
-				}
-				_, err = fs.Stat(w.WriteToFS, path.Join(dir, base+".JSON"))
-				if err == nil {
-					index++
-					continue
-				}
-				break
+			// Check if file already exists - if so, skip it (incremental backup)
+			_, err := fs.Stat(w.WriteToFS, path.Join(dir, base))
+			if err == nil {
+				// File already exists, skip the download
+				return ErrFileExists
 			}
 
 			// write the asset

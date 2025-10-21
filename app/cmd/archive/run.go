@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/simulot/immich-go/adapters"
+	"github.com/simulot/immich-go/adapters/folder"
 	"github.com/simulot/immich-go/app"
 	"github.com/simulot/immich-go/internal/fileevent"
 )
@@ -26,6 +27,11 @@ func run(ctx context.Context, jnl *fileevent.Recorder, _ *app.Application, sourc
 					err = a.Close()
 				}
 				if err != nil {
+					// Check if it's just a skipped file (already exists)
+					if errors.Is(err, folder.ErrFileExists) {
+						jnl.Record(ctx, fileevent.UploadServerDuplicate, a)
+						continue
+					}
 					jnl.Log().Error(err.Error())
 					errCount++
 					if errCount > 5 {
